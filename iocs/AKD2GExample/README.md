@@ -1,2 +1,2 @@
-# xxxMin
-A bare minimum xxx style IOC without all the included support
+# AKD2G Example
+Example IOC demonstrating Kollmorgen AKD2G motor support
