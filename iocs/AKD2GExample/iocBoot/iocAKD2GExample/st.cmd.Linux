@@ -1,0 +1,17 @@
+# ../../bin/${EPICS_HOST_ARCH}/AKD2GExample st.cmd
+< envPaths
+
+< settings.iocsh
+
+dbLoadDatabase("../../dbd/iocAKD2GExampleLinux.dbd")
+iocAKD2GExampleLinux_registerRecordDeviceDriver(pdbbase)
+
+drvAsynIPPortConfigure("AKD2G_ETH", "168.254.111.10:23")
+AKD2GMotorCreateController("AKD2G1", "AKD2G_ETH", 3, 250, 1000)
+
+###############################################################################
+iocInit
+###############################################################################
+
+# print the time our boot was finished
+date
