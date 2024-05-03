@@ -39,6 +39,29 @@ ifdef ASYN
   $(PROD_NAME)_LIBS := asyn $($(PROD_NAME)_LIBS)
 endif
 
+ifdef MOTOR
+  $(DBD_NAME)_DBD += motorSupport.dbd
+  $(PROD_NAME)_LIBS := motor $($(PROD_NAME)_LIBS)
+endif
+
+# ifdef MOTOR
+  # $(DBD_NAME)_DBD += motorSupport.dbd devAcsMotor.dbd devAerotech.dbd
+  # $(DBD_NAME)_DBD += devAttocube.dbd devFaulhaberMotor.dbd devImsMotor.dbd
+  # $(DBD_NAME)_DBD += devKohzuMotor.dbd devMclennanMotor.dbd devMicos.dbd
+  # $(DBD_NAME)_DBD += devMicroMo.dbd devNewFocus.dbd devNewport.dbd
+  # ifdef SNCSEQ
+  # $(DBD_NAME)_DBD += devAerotechSeq.dbd devNewportSeq.dbd
+  # endif
+  # $(DBD_NAME)_DBD += devOriel.dbd devPC6K.dbd devPIJena.dbd devPIMotor.dbd
+  # $(DBD_NAME)_DBD += devSPiiPlus.dbd devSmartMotorMotor.dbd devSoftMotor.dbd
+  # $(DBD_NAME)_DBD += devThorLabs.dbd motorSimSupport.dbd
+#
+  # $(PROD_NAME)_LIBS := motor $($(PROD_NAME)_LIBS)
+  # $(PROD_NAME)_LIBS := Acs acsTech80 Aerotech Attocube Faulhaber Ims KohzuMotor $($(PROD_NAME)_LIBS)
+  # $(PROD_NAME)_LIBS := Mclennan Micos MicroMo NewFocus Newport Oriel PI PIJena $($(PROD_NAME)_LIBS)
+  # $(PROD_NAME)_LIBS := Parker SmartMotor ThorLabs softMotor motorSimSupport $($(PROD_NAME)_LIBS)
+# endif
+
 $(PROD_NAME)_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 # <name>_registerRecordDeviceDriver.cpp will be created from <name>.dbd

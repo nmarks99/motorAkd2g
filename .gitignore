@@ -1,4 +1,6 @@
 *.local
+.loglogin
+.iocsh_history
 .cache/
 *~
 O.*
@@ -20,4 +22,3 @@ built_*.req
 dbl-all.txt
 *.sav*
 scan1Menu.sav
-.iocsh_history

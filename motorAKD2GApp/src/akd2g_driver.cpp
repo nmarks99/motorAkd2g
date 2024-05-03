@@ -1,4 +1,5 @@
 #include <asynOctetSyncIO.h>
+#include <cstdio>
 #include <epicsExport.h>
 #include <epicsThread.h>
 #include <iocsh.h>
@@ -123,7 +124,17 @@ void AKD2GMotorAxis::report(FILE *fp, int level) {
 }
 
 /// \brief Stop the axis
-asynStatus AKD2GMotorAxis::stop(double acceleration) { return asynSuccess; }
+asynStatus AKD2GMotorAxis::stop(double acceleration) {
+
+    asynStatus asyn_status;
+    
+    sprintf(pC_->outString_, "AXIS%d.STOP", this->axisNo_);
+    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Sending: AXIS%d.STOP\n", this->axisIndex_);
+    asyn_status = pC_->writeReadController();
+
+    callParamCallbacks();
+    return asyn_status ? asynError : asynSuccess; 
+}
 
 /// \brief Move the axis
 asynStatus AKD2GMotorAxis::move(double position, int relative, double min_velocity, double max_velocity,
@@ -138,12 +149,12 @@ asynStatus AKD2GMotorAxis::home(double minVelocity, double maxVelocity, double a
 
 /// \brief Poll the axis
 asynStatus AKD2GMotorAxis::poll(bool *moving) {
-    asynStatus asyn_status;
-
-    sprintf(pC_->outString_, "IP.ADDRESS");
+    asynStatus asyn_status = asynSuccess;
+    
+    sprintf(pC_->outString_, "AXIS%d.MOTIONSTAT", this->axisIndex_);
+    // asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "AXIS%d.MOTIONSTAT\n", this->axisIndex_);
     asyn_status = pC_->writeReadController();
-
-    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Received: %s\n\n", pC_->inString_);
+    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Read: %s\n", pC_->inString_);
 
     callParamCallbacks();
 

@@ -6,9 +6,15 @@
 dbLoadDatabase("../../dbd/iocAKD2GExampleLinux.dbd")
 iocAKD2GExampleLinux_registerRecordDeviceDriver(pdbbase)
 
+# Connect to port
 epicsEnvSet("PORT_NAME", "AKD2G_ETH") 
 drvAsynIPPortConfigure("$(PORT_NAME)", "168.254.111.10:23")
-AKD2GMotorCreateController("AKD2G1", "$(PORT_NAME)", 3, 250, 1000)
+
+# load asyn motor record substitutions
+dbLoadTemplate("asyn_motor.substitutions", "P=$(PREFIX)")
+
+# Create the controller object
+AKD2GMotorCreateController("AKD2G1", "$(PORT_NAME)", 1, 250, 1000)
 
 # load asyn record for debugging
 asynSetTraceMask("$(PORT_NAME)", 0, 1)
