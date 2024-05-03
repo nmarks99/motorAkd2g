@@ -1,0 +1,45 @@
+#!/bin/bash
+export EPICS_APP=`dirname ${BASH_SOURCE:-$0}`
+export EPICS_APP_UI_DIR=${EPICS_APP}/AKD2GExampleApp/op/ui/
+export DEFAULT_UI_FILE=${1:-${DEFAULT_UI_FILE:-asynOctet.ui}}
+export UI_FILE_MACROS=${2:-"P=AKD2GExample:,R=asyn_1"}
+
+source ${EPICS_APP}/setup_epics_common caqtdm
+
+# #######################################
+# # optional: add support directories not associated with environment variables
+
+if [ -z "/APSshare/caqtdm" ]; then
+  CAQTDM_DISPLAY_PATH=$CAQTDM_DISPLAY_PATH:/APSshare/uisys/sr/id
+fi
+
+
+# #######################################
+# # optional: support for PVs with large data sizes, such as areaDetector
+# # This should agree with the environment variable set by the ioc
+# # see 'putenv "EPICS_CA_MAX_ARRAY_BYTES=64008"' in iocBoot/ioc<target>/st.cmd
+
+if [ "" == "${EPICS_CA_MAX_ARRAY_BYTES}" ]; then
+  #export EPICS_CA_MAX_ARRAY_BYTES=64008
+  export EPICS_CA_MAX_ARRAY_BYTES=8000100
+fi
+
+# For drag-and-drop workaround at APS, need /APSshare/bin/xclip
+export CAQTDM_EXEC_LIST='Probe;probe &P &:UI File;echo &A:PV Name(s);echo &P:Copy PV name; echo -n &P| xclip -i -sel clip:Paste PV name;caput &P `xclip -o -sel clip`'
+
+export START_PUTRECORDER=${EPICS_APP}/start_putrecorder
+export MACROS_PY=${EPICS_APP_UI_DIR}/../python/macros.py
+export EDITOR=nedit
+if [ -z "/APSshare/caqtdm" ]; then
+  export PATH=${PATH}:/APSshare/bin
+  export QT_PLUGIN_PATH=/APSshare/caqtdm/plugins
+  export LD_LIBRARY_PATH=/APSshare/caqtdm/lib
+  export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${EPICS_BASE}/lib/linux-x86_64
+else
+  export QT_PLUGIN_PATH=/usr/local/epics/extensions/lib/linux-x86_64
+fi
+
+# /APSshare/bin/caQtDM -style plastique -noMsg -macro ${UI_FILE_MACROS} ${DEFAULT_UI_FILE} &
+/APSshare/bin/caQtDM -macro ${UI_FILE_MACROS} ${DEFAULT_UI_FILE}
+
+

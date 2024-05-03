@@ -6,8 +6,16 @@
 dbLoadDatabase("../../dbd/iocAKD2GExampleLinux.dbd")
 iocAKD2GExampleLinux_registerRecordDeviceDriver(pdbbase)
 
-drvAsynIPPortConfigure("AKD2G_ETH", "168.254.111.10:23")
-AKD2GMotorCreateController("AKD2G1", "AKD2G_ETH", 3, 250, 1000)
+epicsEnvSet("PORT_NAME", "AKD2G_ETH") 
+drvAsynIPPortConfigure("$(PORT_NAME)", "168.254.111.10:23")
+AKD2GMotorCreateController("AKD2G1", "$(PORT_NAME)", 3, 250, 1000)
+
+# load asyn record for debugging
+asynSetTraceMask("$(PORT_NAME)", 0, 1)
+asynSetTraceIOMask("$(PORT_NAME)", 0, 1)
+asynOctetSetInputEos("$(PORT_NAME)",0,"\r\n")
+asynOctetSetOutputEos("$(PORT_NAME)",0,"\r\n")
+dbLoadRecords("$(ASYN)/db/asynRecord.db", "P=$(PREFIX), R=asyn_1, PORT=$(PORT_NAME), ADDR=0, OMAX=$(OUT_BUFF=1000), IMAX=$(IN_BUFF=1000)")
 
 ###############################################################################
 iocInit
