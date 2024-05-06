@@ -9,13 +9,6 @@
 
 constexpr int NUM_PARAMS = 0;
 
-/// \brief Create a new AKD2GMotorController object
-///
-/// \param[in] portName             The name of the asyn port that will be created for this driver
-/// \param[in] AKD2GPortName        The name of the drvAsynIPPort that was created previously
-/// \param[in] numAxes              The number of axes that this controller supports
-/// \param[in] movingPollPeriod     The time between polls when any axis is moving
-/// \param[in] idlePollPeriod       The time between polls when no axis is moving
 AKD2GMotorController::AKD2GMotorController(const char *portName, const char *AKD2GMotorPortName, int numAxes,
                                            double movingPollPeriod, double idlePollPeriod)
     : asynMotorController(portName, numAxes, NUM_PARAMS,
@@ -36,9 +29,11 @@ AKD2GMotorController::AKD2GMotorController(const char *portName, const char *AKD
         asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s: cannot connect to AKD2G motor controller\n",
                   functionName);
     }
-
+    
+    // Only 2 axes are supported
     if (numAxes > 2) {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "Requested %d axes but only 2 are supported\n", numAxes);
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "Requested %d axes but only 2 are supported\n",
+                  numAxes);
     }
 
     // Create AKD2GMotorAxis object for each axis
@@ -69,27 +64,24 @@ void AKD2GMotorController::report(FILE *fp, int level) {
     asynMotorController::report(fp, level);
 }
 
-/// \brief Returns a pointer to a AKD2GMotorAxis object
-/// \param[in] asynUser structure that encodes the axis index number
-/// \returns NULL if the axis number encoded in pasynUser is invalid
 AKD2GMotorAxis *AKD2GMotorController::getAxis(asynUser *pasynUser) {
     return static_cast<AKD2GMotorAxis *>(asynMotorController::getAxis(pasynUser));
 }
 
-/// \brief Returns a pointer to a AKD2GMotorAxis object
-/// \param[in] axisNo Axis index number
-/// \returns NULL if the axis number is invalid
 AKD2GMotorAxis *AKD2GMotorController::getAxis(int axisNo) {
     return static_cast<AKD2GMotorAxis *>(asynMotorController::getAxis(axisNo));
 }
 
+void AKD2GMotorAxis::sub_axis_index() {
+    for (auto m = axis_cmd_map.begin(); m != axis_cmd_map.end(); ++m) {
+        size_t index_rep = m->second.find("#");
+        if (index_rep != std::string::npos) {
+            m->second.replace(index_rep, 1, std::to_string(axisIndex_));
+        }
+    }
+}
 
-// =============
-// AKD2GMotorAxis
-// =============
-
-AKD2GMotorAxis::AKD2GMotorAxis(AKD2GMotorController *pC, int axisNo)
-    : asynMotorAxis(pC, axisNo), pC_(pC), axis_cmd(axisNo + 1) {
+AKD2GMotorAxis::AKD2GMotorAxis(AKD2GMotorController *pC, int axisNo) : asynMotorAxis(pC, axisNo), pC_(pC) {
 
     axisIndex_ = axisNo + 1;
     asynPrint(pasynUser_, ASYN_REASON_SIGNAL, "AKD2GMotorAxis created with axis index %d\n", axisIndex_);
@@ -97,6 +89,8 @@ AKD2GMotorAxis::AKD2GMotorAxis(AKD2GMotorController *pC, int axisNo)
     // Gain Support is required for setClosedLoop to be called
     setIntegerParam(pC->motorStatusHasEncoder_, 1);
     setIntegerParam(pC->motorStatusGainSupport_, 1);
+
+    sub_axis_index();
 
     callParamCallbacks();
 }
@@ -113,7 +107,8 @@ asynStatus AKD2GMotorAxis::stop(double acceleration) {
 
     asynStatus asyn_status = asynSuccess;
 
-    std::string cmd = axis_cmd.cmd.at(AxisCmd::Stop);
+    // std::string cmd = axis_cmd.cmd.at(AxisCmd::Stop);
+    std::string cmd = axis_cmd_map.at(AxisCmd::Stop);
 
     asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", cmd.c_str());
     // sprintf(pC_->outString_, "%s", cmd.str().c_str());
@@ -129,11 +124,7 @@ asynStatus AKD2GMotorAxis::move(double position, int relative, double min_veloci
     asynStatus asyn_status = asynSuccess;
 
     std::stringstream ss;
-    ss << position << ","
-        << relative << ","
-        << min_velocity << ","
-        << max_velocity << ","
-        << acceleration;
+    ss << position << "," << relative << "," << min_velocity << "," << max_velocity << "," << acceleration;
 
     asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", ss.str().c_str());
     callParamCallbacks();
@@ -150,7 +141,7 @@ asynStatus AKD2GMotorAxis::home(double minVelocity, double maxVelocity, double a
 asynStatus AKD2GMotorAxis::poll(bool *moving) {
     asynStatus asyn_status = asynSuccess;
 
-    std::string cmd = axis_cmd.cmd.at(AxisCmd::MotionStatus);
+    std::string cmd = axis_cmd_map.at(AxisCmd::MotionStatus);
 
     // asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", cmd.c_str());
     // sprintf(pC_->outString_, "%s", cmd.str().c_str());
@@ -161,16 +152,16 @@ asynStatus AKD2GMotorAxis::poll(bool *moving) {
     return asyn_status;
 }
 
-/// \brief Enable closed loop
 asynStatus AKD2GMotorAxis::setClosedLoop(bool closedLoop) {
     asynStatus asyn_status = asynSuccess;
-    std::string cmd;
 
-    if (closedLoop) {
-        cmd = axis_cmd.cmd.at(AxisCmd::Enable);
-    } else {
-        cmd = axis_cmd.cmd.at(AxisCmd::Disable);
-    }
+    std::string cmd = closedLoop ? axis_cmd_map.at(AxisCmd::Enable) : axis_cmd_map.at(AxisCmd::Disable);
+
+    // if (closedLoop) {
+    // cmd = axis_cmd_map.at(AxisCmd::Enable);
+    // } else {
+    // cmd = axis_cmd_map.at(AxisCmd::Disable);
+    // }
 
     asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", cmd.c_str());
     // sprintf(pC_->outString_, "AXIS%d.EN", this->axisIndex_);

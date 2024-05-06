@@ -18,7 +18,7 @@ DBD += akd2gSupport.dbd
 akd2gSupport_DBD += akd2g.dbd
 
 # specify all source files to be compiled and added to the library
-akd2g_SRCS += akd2g_driver.cpp akd2g_commands.cpp
+akd2g_SRCS += akd2g_driver.cpp
 
 akd2g_LIBS += motor asyn
 akd2g_LIBS += $(EPICS_BASE_IOC_LIBS)
