@@ -1,6 +1,7 @@
 #include "asynDriver.h"
 #include "asynMotorController.h"
 #include "asynMotorAxis.h"
+#include "akd2g_commands.hpp"
 
 class epicsShareClass AKD2GMotorAxis : public asynMotorAxis {
     public:
@@ -16,6 +17,7 @@ class epicsShareClass AKD2GMotorAxis : public asynMotorAxis {
     private:
         AKD2GMotorController *pC_;
         int axisIndex_;
+        AKD2GAxisCmd axis_cmd;
     
     friend class AKD2GMotorController;
 };

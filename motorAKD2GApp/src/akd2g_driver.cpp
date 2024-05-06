@@ -3,6 +3,7 @@
 #include <epicsExport.h>
 #include <epicsThread.h>
 #include <iocsh.h>
+#include <sstream>
 
 #include "akd2g_driver.hpp"
 
@@ -34,8 +35,10 @@ AKD2GMotorController::AKD2GMotorController(const char *portName, const char *AKD
     if (status) {
         asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s: cannot connect to AKD2G motor controller\n",
                   functionName);
-    } else {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "Connect successful\n");
+    }
+
+    if (numAxes > 2) {
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "Requested %d axes but only 2 are supported\n", numAxes);
     }
 
     // Create AKD2GMotorAxis object for each axis
@@ -47,14 +50,6 @@ AKD2GMotorController::AKD2GMotorController(const char *portName, const char *AKD
     startPoller(movingPollPeriod, idlePollPeriod, 2);
 }
 
-/// \breif Creates a new AKD2GMotorController object.
-///
-/// Configuration command, called directly or from iocsh
-/// \param[in] portName             The name of the asyn port that will be created for this driver
-/// \param[in] AKD2GMotorPortName   The name of the drvAsynIPPPort that was created previously
-/// \param[in] numAxes              The number of axes that this controller supports
-/// \param[in] movingPollPeriod     The time in ms between polls when any axis is moving
-/// \param[in] idlePollPeriod       The time in ms between polls when no axis is moving
 extern "C" int AKD2GMotorCreateController(const char *portName, const char *AKD2GMotorPortName, int numAxes,
                                           int movingPollPeriod, int idlePollPeriod) {
     AKD2GMotorController *pAKD2GMotorController = new AKD2GMotorController(
@@ -63,11 +58,6 @@ extern "C" int AKD2GMotorCreateController(const char *portName, const char *AKD2
     return (asynSuccess);
 }
 
-/// \brief Reports on status of the driver
-/// \param[in] fp The file pointer on which report information will be written
-/// \param[in] level The level of report detail desired
-/// If level > 0 then information is printed about each axis.
-/// After printing controller-specific information it calls asynMotorController::report()
 void AKD2GMotorController::report(FILE *fp, int level) {
     // "dbior" from iocsh can be useful to see what's going on here
     fprintf(fp, "AKD2G Motor Controller driver %s\n", this->portName);
@@ -93,28 +83,24 @@ AKD2GMotorAxis *AKD2GMotorController::getAxis(int axisNo) {
     return static_cast<AKD2GMotorAxis *>(asynMotorController::getAxis(axisNo));
 }
 
+
 // =============
 // AKD2GMotorAxis
 // =============
 
-/// \breif Creates a new VirtualMotorAxis object.
-/// \param[in] pC Pointer to the VirtualMotorController to which this axis belongs.
-/// \param[in] axisNo Index number of this axis, range 0 to pC->numAxes_-1.
-///
-/// Initializes register numbers, etc.
-/// Note: the following constructor needs to be modified to accept the stepSize argument if
-/// AKD2GMotorCreateAxis will be called from iocsh, which is necessary for controllers that work in EGU
-/// (engineering units) instead of steps.
-AKD2GMotorAxis::AKD2GMotorAxis(AKD2GMotorController *pC, int axisNo) : asynMotorAxis(pC, axisNo), pC_(pC) {
+AKD2GMotorAxis::AKD2GMotorAxis(AKD2GMotorController *pC, int axisNo)
+    : asynMotorAxis(pC, axisNo), pC_(pC), axis_cmd(axisNo + 1) {
 
     axisIndex_ = axisNo + 1;
-
     asynPrint(pasynUser_, ASYN_REASON_SIGNAL, "AKD2GMotorAxis created with axis index %d\n", axisIndex_);
+
+    // Gain Support is required for setClosedLoop to be called
+    setIntegerParam(pC->motorStatusHasEncoder_, 1);
+    setIntegerParam(pC->motorStatusGainSupport_, 1);
 
     callParamCallbacks();
 }
 
-/// \brief Report on the axis
 void AKD2GMotorAxis::report(FILE *fp, int level) {
     if (level > 0) {
         fprintf(fp, " Axis #%d\n", axisNo_);
@@ -123,46 +109,75 @@ void AKD2GMotorAxis::report(FILE *fp, int level) {
     asynMotorAxis::report(fp, level);
 }
 
-/// \brief Stop the axis
 asynStatus AKD2GMotorAxis::stop(double acceleration) {
 
-    asynStatus asyn_status;
-    
-    sprintf(pC_->outString_, "AXIS%d.STOP", this->axisNo_);
-    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Sending: AXIS%d.STOP\n", this->axisIndex_);
-    asyn_status = pC_->writeReadController();
+    asynStatus asyn_status = asynSuccess;
+
+    std::string cmd = axis_cmd.cmd.at(AxisCmd::Stop);
+
+    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", cmd.c_str());
+    // sprintf(pC_->outString_, "%s", cmd.str().c_str());
+    // asyn_status = pC_->writeReadController();
 
     callParamCallbacks();
-    return asyn_status ? asynError : asynSuccess; 
+    return asyn_status;
 }
 
-/// \brief Move the axis
 asynStatus AKD2GMotorAxis::move(double position, int relative, double min_velocity, double max_velocity,
                                 double acceleration) {
-    return asynSuccess;
+
+    asynStatus asyn_status = asynSuccess;
+
+    std::stringstream ss;
+    ss << position << ","
+        << relative << ","
+        << min_velocity << ","
+        << max_velocity << ","
+        << acceleration;
+
+    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", ss.str().c_str());
+    callParamCallbacks();
+    return asyn_status;
 }
 
-/// \brief home the axis
 asynStatus AKD2GMotorAxis::home(double minVelocity, double maxVelocity, double acceleration, int forwards) {
-    return asynSuccess;
+    asynStatus asyn_status = asynSuccess;
+    // asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", ss.str().c_str());
+    callParamCallbacks();
+    return asyn_status;
 }
 
-/// \brief Poll the axis
 asynStatus AKD2GMotorAxis::poll(bool *moving) {
     asynStatus asyn_status = asynSuccess;
-    
-    sprintf(pC_->outString_, "AXIS%d.MOTIONSTAT", this->axisIndex_);
-    // asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "AXIS%d.MOTIONSTAT\n", this->axisIndex_);
-    asyn_status = pC_->writeReadController();
-    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Read: %s\n", pC_->inString_);
+
+    std::string cmd = axis_cmd.cmd.at(AxisCmd::MotionStatus);
+
+    // asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", cmd.c_str());
+    // sprintf(pC_->outString_, "%s", cmd.str().c_str());
+    // asyn_status = pC_->writeReadController();
+    // asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Read: %s\n", pC_->inString_);
 
     callParamCallbacks();
-
-    return asyn_status ? asynError : asynSuccess;
+    return asyn_status;
 }
 
 /// \brief Enable closed loop
-asynStatus AKD2GMotorAxis::setClosedLoop(bool closedLoop) { return asynSuccess; }
+asynStatus AKD2GMotorAxis::setClosedLoop(bool closedLoop) {
+    asynStatus asyn_status = asynSuccess;
+    std::string cmd;
+
+    if (closedLoop) {
+        cmd = axis_cmd.cmd.at(AxisCmd::Enable);
+    } else {
+        cmd = axis_cmd.cmd.at(AxisCmd::Disable);
+    }
+
+    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", cmd.c_str());
+    // sprintf(pC_->outString_, "AXIS%d.EN", this->axisIndex_);
+    // asyn_status = pC_->writeReadController();
+    // asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Read: %s\n", pC_->inString_);
+    return asyn_status;
+}
 
 // ==================
 // iosch registration
