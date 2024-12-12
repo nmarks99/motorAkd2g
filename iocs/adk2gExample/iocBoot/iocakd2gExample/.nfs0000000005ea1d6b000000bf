@@ -1,0 +1,14 @@
+# ../../bin/${EPICS_HOST_ARCH}/adk2gExample st.cmd
+< envPaths
+
+dbLoadDatabase("../../dbd/iocadk2gExampleLinux.dbd")
+iocadk2gExampleLinux_registerRecordDeviceDriver(pdbbase)
+
+< settings.iocsh
+
+###############################################################################
+iocInit
+###############################################################################
+
+# print the time our boot was finished
+date

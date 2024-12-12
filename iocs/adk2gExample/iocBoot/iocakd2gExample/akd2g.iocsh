@@ -1,0 +1,15 @@
+# Connect to port
+drvAsynIPPortConfigure("AKD2G_ETH", "168.254.111.10:23")
+
+# load asyn motor record substitutions
+dbLoadTemplate("akd2g.substitutions", "P=$(PREFIX)")
+
+# Create the controller object
+Akd2gMotorCreateController("AKD2G1", "AKD2G_ETH", 2, 250, 1000)
+
+# load asyn record for debugging
+asynSetTraceMask("AKD2G_ETH", 0, 1)
+asynSetTraceIOMask("AKD2G_ETH", 0, 1)
+asynOctetSetInputEos("AKD2G_ETH",0,"\r\n")
+asynOctetSetOutputEos("AKD2G_ETH",0,"\r\n")
+dbLoadRecords("$(ASYN)/db/asynRecord.db", "P=$(PREFIX), R=asyn_1, PORT=AKD2G_ETH, ADDR=0, OMAX=$(OUT_BUFF=1000), IMAX=$(IN_BUFF=1000)")
