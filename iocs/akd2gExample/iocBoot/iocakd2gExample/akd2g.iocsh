@@ -1,11 +1,11 @@
-# Connect to port
-drvAsynIPPortConfigure("AKD2G_ETH", "168.254.111.10:23")
-
-# load asyn motor record substitutions
-dbLoadTemplate("akd2g.substitutions", "P=$(PREFIX)")
+# Connect to controller
+drvAsynIPPortConfigure("AKD2G_ETH", "10.54.115.33:23")
 
 # Create the controller object
-Akd2gMotorCreateController("AKD2G1", "AKD2G_ETH", 2, 250, 1000)
+Akd2gMotorCreateController("AKD2G_1", "AKD2G_ETH", 1, 250, 1000)
+
+# load motor records
+dbLoadTemplate("akd2g.substitutions", "P=$(PREFIX)")
 
 # load asyn record for debugging
 asynSetTraceMask("AKD2G_ETH", 0, 1)

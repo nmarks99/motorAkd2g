@@ -1,37 +1,72 @@
 #include "asynDriver.h"
 #include "asynMotorAxis.h"
 #include "asynMotorController.h"
-#include <map>
+#include <unordered_map>
 
-enum class AxisCmd : int { Stop, Enable, Disable, MotionStatus, Active, HomeAcc };
+// Only supporting using a single motion task (task 0) though EPICS
+enum class Command : int {
+  // Misc.
+  AxisStop,
+  AxisEnable,
+  AxisDisable,
+  AxisMotionStat,
+  AxisActive,
+  AxisPosition,
+
+  // Homing
+  AxisHomeMove,
+  
+  // Motion Task
+  AxisMTPosition,
+  AxisMTVelocity,
+  AxisMTControl,
+  AxisMTAccel,
+  AxisMTDecel,
+  AxisMTNext, // should be -1
+  AxisMTTimeNext, // doesn't matter
+  AxisMTRunning,
+
+};
+
+
+// Base commands without arguments
+inline const std::unordered_map<Command, std::string> cmd_map_template {
+    {Command::AxisStop, "AXIS#.STOP"},
+    {Command::AxisEnable, "AXIS#.EN"},
+    {Command::AxisDisable, "AXIS#.DIS"},
+    {Command::AxisActive, "AXIS#.ACTIVE"},
+    {Command::AxisMotionStat, "AXIS#.MOTIONSTAT"},
+    {Command::AxisPosition, "AXIS#.PL.FB"},
+    {Command::AxisHomeMove, "AXIS#.HOME.MOVE"},
+
+    {Command::AxisMTPosition, "AXIS#.MT.P 0"},
+    {Command::AxisMTVelocity, "AXIS#.MT.V 0"},
+    {Command::AxisMTControl, "AXIS#.MT.CNTL 0"},
+    {Command::AxisMTAccel, "AXIS#.MT.ACC 0"},
+    {Command::AxisMTDecel, "AXIS#.MT.DEC 0"},
+    {Command::AxisMTNext, "AXIS#.MT.MTNEXT 0"},
+    {Command::AxisMTTimeNext, "AXIS#.MT.TNEXT 0"},
+    {Command::AxisMTRunning, "AXIS#.MT.RUNNING 0"},
+};
+
 
 class epicsShareClass Akd2gMotorAxis : public asynMotorAxis {
   public:
-
     Akd2gMotorAxis(class Akd2gMotorController *pC, int axisNo);
     void report(FILE *fp, int level);
     asynStatus stop(double acceleration);
-    asynStatus move(double position, int relative, double min_velocity, double max_velocity, double acceleration);
     asynStatus poll(bool *moving);
     asynStatus setClosedLoop(bool closedLoop);
     asynStatus home(double minVelocity, double maxVelocity, double acceleration, int forwards);
+    asynStatus move(double position, int relative, double min_velocity, double max_velocity, double acceleration);
 
   private:
     Akd2gMotorController *pC_;
     int axisIndex_;
+    std::unordered_map<Command, std::string> cmd_map_ = cmd_map_template;
 
-    // replaces "#" in axis_cmd_map keys with axisIndex_
-    void sub_axis_index();
-
-    // AXIS#.COMMAND commands from the Akd2g user manual
-    std::map<AxisCmd, std::string> axis_cmd_map{
-        {AxisCmd::Stop, "AXIS#.STOP"},
-        {AxisCmd::Enable, "AXIS#.EN"},
-        {AxisCmd::Disable, "AXIS#.DIS"},
-        {AxisCmd::Active, "AXIS#.ACTIVE"},
-        {AxisCmd::MotionStatus, "AXIS#.MOTIONSTATS"},
-        {AxisCmd::HomeAcc, "AXIS#.HOME.ACC"},
-    };
+    // Replace "#" with the axisIndex_ in cmd_map_
+    void replace_axis_index();
 
     friend class Akd2gMotorController;
 };
@@ -40,7 +75,8 @@ class epicsShareClass Akd2gMotorController : public asynMotorController {
   public:
     /// \brief Create a new Akd2gMotorController object
     ///
-    /// \param[in] portName             The name of the asyn port that will be created for this driver
+    /// \param[in] portName             The name of the asyn port that will be created for this
+    /// driver
     /// \param[in] Akd2gPortName        The name of the drvAsynIPPort that was created previously
     /// \param[in] numAxes              The number of axes that this controller supports
     /// \param[in] movingPollPeriod     The time between polls when any axis is moving

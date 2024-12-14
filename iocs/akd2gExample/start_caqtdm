@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+export CAQTDM_DISPLAY_PATH=${CAQTDM_DISPLAY_PATH}:/APSshare/epics/synApps_6_3/support/motor-R7-3-1/motorApp/op/ui/autoconvert
+export CAQTDM_DISPLAY_PATH=${CAQTDM_DISPLAY_PATH}:/APSshare/epics/synApps_6_3/support/asyn-R4-44-2/opi/caqtdm/autoconvert/
+
+/APSshare/bin/caQtDM -macro "P=akd2gExample:,M1=m1,M2=m2,M3=m3" topMotors8.ui &
+/APSshare/bin/caQtDM -attach -macro "P=akd2gExample:,R=asyn_1" asynOctet.ui &

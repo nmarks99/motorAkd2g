@@ -1,7 +1,0 @@
-epicsEnvSet("IOC","iocadk2gExample")
-epicsEnvSet("TOP","/home/beams0/NMARKS/devel/polar/kollmorgen_akd2g/motorAkd2g/iocs/adk2gExample")
-epicsEnvSet("MOTOR_AKD2G","/home/beams0/NMARKS/devel/polar/kollmorgen_akd2g/motorAkd2g/iocs/adk2gExample/../..")
-epicsEnvSet("SUPPORT","/APSshare/epics/synApps_6_3/support")
-epicsEnvSet("EPICS_BASE","/APSshare/epics/base-7.0.8")
-epicsEnvSet("ASYN","/APSshare/epics/synApps_6_3/support/asyn-R4-44-2")
-epicsEnvSet("MOTOR","/APSshare/epics/synApps_6_3/support/motor-R7-3-1")
