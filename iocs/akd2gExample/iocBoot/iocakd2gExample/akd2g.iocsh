@@ -8,8 +8,9 @@ Akd2gMotorCreateController("AKD2G_1", "AKD2G_ETH", 1, 250, 1000)
 dbLoadTemplate("akd2g.substitutions", "P=$(PREFIX)")
 
 # load asyn record for debugging
-asynSetTraceMask("AKD2G_ETH", 0, 1)
-asynSetTraceIOMask("AKD2G_ETH", 0, 1)
+# asynSetTraceIOMask("AKD2G_ETH", 0, 0x1)
+# asynSetTraceMask("AKD2G_ETH", 0, 0xb)
 asynOctetSetInputEos("AKD2G_ETH",0,"\r\n")
 asynOctetSetOutputEos("AKD2G_ETH",0,"\r\n")
 dbLoadRecords("$(ASYN)/db/asynRecord.db", "P=$(PREFIX), R=asyn_1, PORT=AKD2G_ETH, ADDR=0, OMAX=$(OUT_BUFF=1000), IMAX=$(IN_BUFF=1000)")
+

@@ -2,10 +2,14 @@
 #include "asynMotorAxis.h"
 #include "asynMotorController.h"
 #include <unordered_map>
+#include <sstream>
 
-// Only supporting using a single motion task (task 0) though EPICS
 enum class Command : int {
   // Misc.
+  AxisOpMode,
+  AxisUnitProtary,
+  AxisUnitVrotary,
+  AxisUnitACCrotary,
   AxisStop,
   AxisEnable,
   AxisDisable,
@@ -15,6 +19,11 @@ enum class Command : int {
 
   // Homing
   AxisHomeMove,
+  AxisHomeVelocity,
+  AxisHomeAccel,
+  AxisHomeDecel,
+  AxisHomeDir,
+  AxisHomeFound,
   
   // Motion Task
   AxisMTPosition,
@@ -24,21 +33,34 @@ enum class Command : int {
   AxisMTDecel,
   AxisMTNext, // should be -1
   AxisMTTimeNext, // doesn't matter
+  AxisMTMove,
   AxisMTRunning,
-
 };
 
 
 // Base commands without arguments
 inline const std::unordered_map<Command, std::string> cmd_map_template {
+    {Command::AxisOpMode, "AXIS#.OPMODE"},
+
+    {Command::AxisUnitProtary, "AXIS#.UNIT.PROTARY"},
+    {Command::AxisUnitVrotary, "AXIS#.UNIT.VROTARY"},
+    {Command::AxisUnitACCrotary, "AXIS#.UNIT.ACCROTARY"},
+    
     {Command::AxisStop, "AXIS#.STOP"},
     {Command::AxisEnable, "AXIS#.EN"},
     {Command::AxisDisable, "AXIS#.DIS"},
     {Command::AxisActive, "AXIS#.ACTIVE"},
     {Command::AxisMotionStat, "AXIS#.MOTIONSTAT"},
     {Command::AxisPosition, "AXIS#.PL.FB"},
-    {Command::AxisHomeMove, "AXIS#.HOME.MOVE"},
 
+    {Command::AxisHomeMove, "AXIS#.HOME.MOVE"},
+    {Command::AxisHomeVelocity, "AXIS#.HOME.V"},
+    {Command::AxisHomeAccel, "AXIS#.HOME.ACC"},
+    {Command::AxisHomeDecel, "AXIS#.HOME.DEC"},
+    {Command::AxisHomeDir, "AXIS#.HOME.DIR"},
+    {Command::AxisHomeFound, "AXIS#.MOTIONSTAT.HOMEFOUND"},
+
+    // This EPICS driver uses Motion Task 0 exclusively
     {Command::AxisMTPosition, "AXIS#.MT.P 0"},
     {Command::AxisMTVelocity, "AXIS#.MT.V 0"},
     {Command::AxisMTControl, "AXIS#.MT.CNTL 0"},
@@ -46,6 +68,7 @@ inline const std::unordered_map<Command, std::string> cmd_map_template {
     {Command::AxisMTDecel, "AXIS#.MT.DEC 0"},
     {Command::AxisMTNext, "AXIS#.MT.MTNEXT 0"},
     {Command::AxisMTTimeNext, "AXIS#.MT.TNEXT 0"},
+    {Command::AxisMTMove, "AXIS#.MT.Move 0"},
     {Command::AxisMTRunning, "AXIS#.MT.RUNNING 0"},
 };
 
@@ -68,6 +91,15 @@ class epicsShareClass Akd2gMotorAxis : public asynMotorAxis {
     // Replace "#" with the axisIndex_ in cmd_map_
     void replace_axis_index();
 
+    template<typename T>
+    std::string fmt_cmd(Command cmd, T arg) {
+        std::ostringstream oss; 
+        oss << cmd_map_.at(cmd) << " " << arg;
+        return oss.str();
+    };
+
+    bool is_enabled();
+  
     friend class Akd2gMotorController;
 };
 
