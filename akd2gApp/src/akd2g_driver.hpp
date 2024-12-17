@@ -1,51 +1,50 @@
 #include "asynDriver.h"
 #include "asynMotorAxis.h"
 #include "asynMotorController.h"
-#include <unordered_map>
 #include <sstream>
+#include <unordered_map>
 
 enum class Command : int {
-  // Misc.
-  AxisOpMode,
-  AxisUnitProtary,
-  AxisUnitVrotary,
-  AxisUnitACCrotary,
-  AxisStop,
-  AxisEnable,
-  AxisDisable,
-  AxisMotionStat,
-  AxisActive,
-  AxisPosition,
+    // Misc.
+    AxisOpMode,
+    AxisUnitProtary,
+    AxisUnitVrotary,
+    AxisUnitACCrotary,
+    AxisStop,
+    AxisEnable,
+    AxisDisable,
+    AxisMotionStat,
+    AxisActive,
+    AxisPosition,
 
-  // Homing
-  AxisHomeMove,
-  AxisHomeVelocity,
-  AxisHomeAccel,
-  AxisHomeDecel,
-  AxisHomeDir,
-  AxisHomeFound,
-  
-  // Motion Task
-  AxisMTPosition,
-  AxisMTVelocity,
-  AxisMTControl,
-  AxisMTAccel,
-  AxisMTDecel,
-  AxisMTNext, // should be -1
-  AxisMTTimeNext, // doesn't matter
-  AxisMTMove,
-  AxisMTRunning,
+    // Homing
+    AxisHomeMove,
+    AxisHomeVelocity,
+    AxisHomeAccel,
+    AxisHomeDecel,
+    AxisHomeDir,
+    AxisHomeFound,
+
+    // Motion Task
+    AxisMTPosition,
+    AxisMTVelocity,
+    AxisMTControl,
+    AxisMTAccel,
+    AxisMTDecel,
+    AxisMTNext,     // should be -1
+    AxisMTTimeNext, // doesn't matter
+    AxisMTMove,
+    AxisMTRunning,
 };
 
-
 // Base commands without arguments
-inline const std::unordered_map<Command, std::string> cmd_map_template {
+inline const std::unordered_map<Command, std::string> cmd_map_template{
     {Command::AxisOpMode, "AXIS#.OPMODE"},
 
     {Command::AxisUnitProtary, "AXIS#.UNIT.PROTARY"},
     {Command::AxisUnitVrotary, "AXIS#.UNIT.VROTARY"},
     {Command::AxisUnitACCrotary, "AXIS#.UNIT.ACCROTARY"},
-    
+
     {Command::AxisStop, "AXIS#.STOP"},
     {Command::AxisEnable, "AXIS#.EN"},
     {Command::AxisDisable, "AXIS#.DIS"},
@@ -72,7 +71,6 @@ inline const std::unordered_map<Command, std::string> cmd_map_template {
     {Command::AxisMTRunning, "AXIS#.MT.RUNNING 0"},
 };
 
-
 class epicsShareClass Akd2gMotorAxis : public asynMotorAxis {
   public:
     Akd2gMotorAxis(class Akd2gMotorController *pC, int axisNo);
@@ -81,7 +79,8 @@ class epicsShareClass Akd2gMotorAxis : public asynMotorAxis {
     asynStatus poll(bool *moving);
     asynStatus setClosedLoop(bool closedLoop);
     asynStatus home(double minVelocity, double maxVelocity, double acceleration, int forwards);
-    asynStatus move(double position, int relative, double min_velocity, double max_velocity, double acceleration);
+    asynStatus move(double position, int relative, double minVelocity, double maxVelocity,
+                    double acceleration);
 
   private:
     Akd2gMotorController *pC_;
@@ -91,15 +90,14 @@ class epicsShareClass Akd2gMotorAxis : public asynMotorAxis {
     // Replace "#" with the axisIndex_ in cmd_map_
     void replace_axis_index();
 
-    template<typename T>
-    std::string fmt_cmd(Command cmd, T arg) {
-        std::ostringstream oss; 
+    template <typename T> std::string fmt_cmd(Command cmd, T arg) {
+        std::ostringstream oss;
         oss << cmd_map_.at(cmd) << " " << arg;
         return oss.str();
     };
 
     bool is_enabled();
-  
+
     friend class Akd2gMotorController;
 };
 

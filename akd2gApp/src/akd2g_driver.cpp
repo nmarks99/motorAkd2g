@@ -12,16 +12,16 @@
 
 constexpr int NUM_PARAMS = 0;
 
-
 // actual encoder res is 100 microdegrees
 // MRES -> EGU
 // 1.0  -> microdegrees
 // 1e-3 -> millidegrees
 // 1e-6 -> degrees
-constexpr double DRIVER_RESOLUTION = 1e6; 
+constexpr double DRIVER_RESOLUTION = 1e6;
 
-Akd2gMotorController::Akd2gMotorController(const char *portName, const char *Akd2gMotorPortName, int numAxes,
-                                           double movingPollPeriod, double idlePollPeriod)
+Akd2gMotorController::Akd2gMotorController(const char *portName, const char *Akd2gMotorPortName,
+                                           int numAxes, double movingPollPeriod,
+                                           double idlePollPeriod)
     : asynMotorController(portName, numAxes, NUM_PARAMS,
                           0, // No additional interfaces beyond the base class
                           0, // No additional callback interfaces beyond those in base class
@@ -40,7 +40,7 @@ Akd2gMotorController::Akd2gMotorController(const char *portName, const char *Akd
         asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR, "%s: cannot connect to AKD2G controller\n",
                   functionName);
     }
-    
+
     // Create Akd2gMotorAxis object for each axis
     // if not done here, user must call Akd2gMotorCreateAxis from cmd file
     for (axis = 0; axis < numAxes; axis++) {
@@ -50,8 +50,8 @@ Akd2gMotorController::Akd2gMotorController(const char *portName, const char *Akd
     startPoller(movingPollPeriod, idlePollPeriod, 2);
 }
 
-extern "C" int Akd2gMotorCreateController(const char *portName, const char *Akd2gMotorPortName, int numAxes,
-                                          int movingPollPeriod, int idlePollPeriod) {
+extern "C" int Akd2gMotorCreateController(const char *portName, const char *Akd2gMotorPortName,
+                                          int numAxes, int movingPollPeriod, int idlePollPeriod) {
     Akd2gMotorController *pAkd2gMotorController = new Akd2gMotorController(
         portName, Akd2gMotorPortName, numAxes, movingPollPeriod / 1000., idlePollPeriod / 1000.);
     pAkd2gMotorController = NULL;
@@ -90,10 +90,12 @@ void Akd2gMotorAxis::replace_axis_index() {
     }
 }
 
-Akd2gMotorAxis::Akd2gMotorAxis(Akd2gMotorController *pC, int axisNo) : asynMotorAxis(pC, axisNo), pC_(pC) {
+Akd2gMotorAxis::Akd2gMotorAxis(Akd2gMotorController *pC, int axisNo)
+    : asynMotorAxis(pC, axisNo), pC_(pC) {
 
     axisIndex_ = axisNo + 1;
-    asynPrint(pasynUser_, ASYN_REASON_SIGNAL, "Akd2gMotorAxis created with axis index %d\n", axisIndex_);
+    asynPrint(pasynUser_, ASYN_REASON_SIGNAL, "Akd2gMotorAxis created with axis index %d\n",
+              axisIndex_);
 
     // Gain Support is required for setClosedLoop to be called
     setIntegerParam(pC->motorStatusHasEncoder_, 1);
@@ -101,7 +103,7 @@ Akd2gMotorAxis::Akd2gMotorAxis(Akd2gMotorController *pC, int axisNo) : asynMotor
 
     // replace "#" in axis command strings with axisIndex_
     replace_axis_index();
-    
+
     callParamCallbacks();
 }
 
@@ -117,14 +119,14 @@ asynStatus Akd2gMotorAxis::stop(double acceleration) {
 
     asynStatus asyn_status = asynSuccess;
 
-    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n", cmd_map_.at(Command::AxisStop).c_str());
+    asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "%s\n",
+              cmd_map_.at(Command::AxisStop).c_str());
     sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisStop).c_str());
     asyn_status = pC_->writeReadController();
 
     callParamCallbacks();
     return asyn_status;
 }
-
 
 bool Akd2gMotorAxis::is_enabled() {
     bool enabled = false;
@@ -135,7 +137,7 @@ bool Akd2gMotorAxis::is_enabled() {
     } else {
         try {
             enabled = static_cast<bool>(std::stoi(pC_->inString_));
-        } catch (std::exception &err){
+        } catch (std::exception &err) {
             asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "%s\n", err.what());
             enabled = false;
         }
@@ -143,9 +145,8 @@ bool Akd2gMotorAxis::is_enabled() {
     return enabled;
 }
 
-
-asynStatus Akd2gMotorAxis::move(double position, int relative, double min_velocity, double max_velocity,
-                                double acceleration) {
+asynStatus Akd2gMotorAxis::move(double position, int relative, double minVelocity,
+                                double maxVelocity, double acceleration) {
     asynStatus asyn_status = asynStatus::asynSuccess;
 
     bool homed = false;
@@ -154,7 +155,8 @@ asynStatus Akd2gMotorAxis::move(double position, int relative, double min_veloci
     // check that axis is enabled
     enabled = is_enabled();
     if (!enabled) {
-        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "Cannot move because axis %d is not enabled\n", axisIndex_);
+        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                  "Cannot move because axis %d is not enabled\n", axisIndex_);
         setIntegerParam(pC_->motorStatusProblem_, 1);
         goto skip;
     }
@@ -162,47 +164,144 @@ asynStatus Akd2gMotorAxis::move(double position, int relative, double min_veloci
     // check that axis is homed
     sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisHomeFound).c_str());
     asyn_status = pC_->writeReadController();
-    if (asyn_status) { goto skip; }
+    if (asyn_status) {
+        goto skip;
+    }
     try {
         homed = static_cast<bool>(std::stoi(pC_->inString_));
-    } catch (std::exception &err){
+    } catch (std::exception &err) {
         asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "%s\n", err.what());
         goto skip;
     }
     if (!homed) {
-        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "Cannot move because axis %d is not homed\n", axisIndex_);
+        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                  "Cannot move because axis %d is not homed\n", axisIndex_);
         setIntegerParam(pC_->motorStatusProblem_, 1);
         goto skip;
     }
 
-    // Execute the move
+    // Define the motion task. We use motion task 0 for everything is this driver
+    //
+    // Set to absolute motion
     std::cout << fmt_cmd(Command::AxisMTControl, 0) << "\n";
-    std::cout << fmt_cmd(Command::AxisMTPosition, position/DRIVER_RESOLUTION) << "\n";
-    std::cout << fmt_cmd(Command::AxisMTVelocity, max_velocity/DRIVER_RESOLUTION) << "\n";
-    std::cout << fmt_cmd(Command::AxisMTAccel, acceleration/DRIVER_RESOLUTION) << "\n";
-    std::cout << fmt_cmd(Command::AxisMTDecel, acceleration/DRIVER_RESOLUTION) << "\n";
+    sprintf(pC_->outString_, "%s", fmt_cmd(Command::AxisMTControl, 0).c_str());
+    asyn_status = pC_->writeReadController();
+    if (asyn_status) {
+        goto skip;
+    }
+
+    // Set target position
+    std::cout << fmt_cmd(Command::AxisMTPosition, position / DRIVER_RESOLUTION) << "\n";
+    sprintf(pC_->outString_, "%s",
+            fmt_cmd(Command::AxisMTPosition, position / DRIVER_RESOLUTION).c_str());
+    asyn_status = pC_->writeReadController();
+    if (asyn_status) {
+        goto skip;
+    }
+
+    // Set maximum velocity
+    std::cout << fmt_cmd(Command::AxisMTVelocity, maxVelocity / DRIVER_RESOLUTION) << "\n";
+    sprintf(pC_->outString_, "%s",
+            fmt_cmd(Command::AxisMTVelocity, maxVelocity / DRIVER_RESOLUTION).c_str());
+    asyn_status = pC_->writeReadController();
+    if (asyn_status) {
+        goto skip;
+    }
+
+    // Set maximum acceleration
+    std::cout << fmt_cmd(Command::AxisMTAccel, acceleration / DRIVER_RESOLUTION) << "\n";
+    sprintf(pC_->outString_, "%s",
+            fmt_cmd(Command::AxisMTAccel, acceleration / DRIVER_RESOLUTION).c_str());
+    asyn_status = pC_->writeReadController();
+    if (asyn_status) {
+        goto skip;
+    }
+
+    // Set maximum deceleration, same as acceleration
+    std::cout << fmt_cmd(Command::AxisMTDecel, acceleration / DRIVER_RESOLUTION) << "\n";
+    sprintf(pC_->outString_, "%s",
+            fmt_cmd(Command::AxisMTDecel, acceleration / DRIVER_RESOLUTION).c_str());
+    asyn_status = pC_->writeReadController();
+    if (asyn_status) {
+        goto skip;
+    }
+
+    // Execute the move
     std::cout << cmd_map_.at(Command::AxisMTMove) << "\n";
-    
+    sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisMTMove).c_str());
+    asyn_status = pC_->writeReadController();
+    if (asyn_status) {
+        goto skip;
+    }
+
 skip:
+    if (asyn_status) {
+        setIntegerParam(pC_->motorStatusCommsError_, 1);
+    }
     callParamCallbacks();
     return asyn_status;
 }
 
-asynStatus Akd2gMotorAxis::home(double minVelocity, double maxVelocity, double acceleration, int forwards) {
- 
+asynStatus Akd2gMotorAxis::home(double minVelocity, double maxVelocity, double acceleration,
+                                int forwards) {
+
     asynStatus asyn_status = asynSuccess;
 
-    if (is_enabled()) {
-        std::cout << fmt_cmd(Command::AxisHomeVelocity, maxVelocity/DRIVER_RESOLUTION) << "\n";
-        std::cout << fmt_cmd(Command::AxisHomeAccel, acceleration/DRIVER_RESOLUTION) << "\n";
-        std::cout << fmt_cmd(Command::AxisHomeDecel, acceleration/DRIVER_RESOLUTION) << "\n";
+    if (true) {
+
+        // Set homing velocity
+        std::cout << fmt_cmd(Command::AxisHomeVelocity, maxVelocity / DRIVER_RESOLUTION) << "\n";
+        sprintf(pC_->outString_, "%s",
+                fmt_cmd(Command::AxisHomeVelocity, maxVelocity / DRIVER_RESOLUTION).c_str());
+        asyn_status = pC_->writeReadController();
+        if (asyn_status) {
+            goto skip;
+        }
+
+        // Set homing acceleration
+        std::cout << fmt_cmd(Command::AxisHomeAccel, acceleration / DRIVER_RESOLUTION) << "\n";
+        sprintf(pC_->outString_, "%s",
+                fmt_cmd(Command::AxisHomeAccel, acceleration / DRIVER_RESOLUTION).c_str());
+        asyn_status = pC_->writeReadController();
+        if (asyn_status) {
+            goto skip;
+        }
+
+        // Set homing deceleration, same as acceleration
+        std::cout << fmt_cmd(Command::AxisHomeDecel, acceleration / DRIVER_RESOLUTION) << "\n";
+        sprintf(pC_->outString_, "%s",
+                fmt_cmd(Command::AxisHomeDecel, acceleration / DRIVER_RESOLUTION).c_str());
+        asyn_status = pC_->writeReadController();
+        if (asyn_status) {
+            goto skip;
+        }
+
+        // Set homing direction
         std::cout << fmt_cmd(Command::AxisHomeDir, forwards) << "\n";
+        sprintf(pC_->outString_, "%s", fmt_cmd(Command::AxisHomeDir, forwards).c_str());
+        asyn_status = pC_->writeReadController();
+        if (asyn_status) {
+            goto skip;
+        }
+
+        // Execute the homing move
         std::cout << cmd_map_.at(Command::AxisHomeMove) << "\n";
+        sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisHomeMove).c_str());
+        asyn_status = pC_->writeReadController();
+        if (asyn_status) {
+            goto skip;
+        }
+
     } else {
-        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "Cannot home because axis %d is not enabled\n", axisIndex_);
+        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
+                  "Cannot home because axis %d is not enabled\n", axisIndex_);
         setIntegerParam(pC_->motorStatusProblem_, 1);
     }
 
+skip:
+    if (asyn_status) {
+        setIntegerParam(pC_->motorStatusCommsError_, 1);
+    }
     callParamCallbacks();
     return asyn_status;
 }
@@ -219,7 +318,7 @@ asynStatus Akd2gMotorAxis::poll(bool *moving) {
         std::string in_str(in_string);
         auto rm_start = in_str.find("[");
         if (rm_start != std::string::npos) {
-            in_str.erase(in_str.begin()+rm_start, in_str.end());
+            in_str.erase(in_str.begin() + rm_start, in_str.end());
         }
         return in_str;
     };
@@ -227,28 +326,31 @@ asynStatus Akd2gMotorAxis::poll(bool *moving) {
     // Get moving done status
     sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisMTRunning).c_str());
     asyn_status = pC_->writeReadController();
-    if (asyn_status) { goto skip; }
+    if (asyn_status) {
+        goto skip;
+    }
     try {
         *moving = std::stoi(pC_->inString_);
     } catch (std::exception &err) { // std::out_of_range or std::invalid_argument
         asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "%s\n", err.what());
     }
-    setIntegerParam(pC_->motorStatusDone_, not *moving);
+    setIntegerParam(pC_->motorStatusDone_, not*moving);
     setIntegerParam(pC_->motorStatusMoving_, *moving);
 
     // Read axis position
     sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisPosition).c_str());
     asyn_status = pC_->writeReadController();
-    if (asyn_status) { goto skip; }
+    if (asyn_status) {
+        goto skip;
+    }
     in_str_clean = parse_rbk(pC_->inString_);
     try {
         position_deg = std::stof(in_str_clean);
-        asynPrint(pC_->pasynUserSelf, ASYN_REASON_SIGNAL, "Position: %lf [deg]\n", position_deg);
-    } catch (std::exception &err){
+    } catch (std::exception &err) {
         asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "%s\n", err.what());
     }
-    position_udeg = DRIVER_RESOLUTION * position_deg; // convert to microdegree "steps"
-    setDoubleParam(pC_->motorPosition_, position_udeg);   // RRBV [microdegrees]
+    position_udeg = DRIVER_RESOLUTION * position_deg;   // convert to microdegree "steps"
+    setDoubleParam(pC_->motorPosition_, position_udeg); // RRBV [microdegrees]
     setDoubleParam(pC_->motorEncoderPosition_, position_udeg);
 
 skip:
@@ -259,16 +361,14 @@ skip:
 asynStatus Akd2gMotorAxis::setClosedLoop(bool closedLoop) {
     asynStatus asyn_status = asynSuccess;
 
-    if (closedLoop) {
-        std::cout << cmd_map_.at(Command::AxisEnable) << "\n";
-    } else {
-        std::cout << cmd_map_.at(Command::AxisDisable) << "\n";
+    std::string cmd =
+        closedLoop ? cmd_map_.at(Command::AxisEnable) : cmd_map_.at(Command::AxisDisable);
+    sprintf(pC_->outString_, "%s", cmd.c_str());
+    asyn_status = pC_->writeReadController();
+
+    if (asyn_status) {
+        setIntegerParam(pC_->motorStatusCommsError_, 1);
     }
-
-    // std::string cmd = closedLoop ? cmd_map_.at(Command::AxisEnable) : cmd_map_.at(Command::AxisDisable);
-    // sprintf(pC_->outString_, "%s", cmd.c_str());
-    // asyn_status = pC_->writeReadController();
-
     callParamCallbacks();
     return asyn_status;
 }
@@ -283,13 +383,15 @@ static const iocshArg Akd2gMotorCreateControllerArg2 = {"Number of axes", iocshA
 static const iocshArg Akd2gMotorCreateControllerArg3 = {"Moving poll period (ms)", iocshArgInt};
 static const iocshArg Akd2gMotorCreateControllerArg4 = {"Idle poll period (ms)", iocshArgInt};
 static const iocshArg *const Akd2gMotorCreateControllerArgs[] = {
-    &Akd2gMotorCreateControllerArg0, &Akd2gMotorCreateControllerArg1, &Akd2gMotorCreateControllerArg2,
-    &Akd2gMotorCreateControllerArg3, &Akd2gMotorCreateControllerArg4};
+    &Akd2gMotorCreateControllerArg0, &Akd2gMotorCreateControllerArg1,
+    &Akd2gMotorCreateControllerArg2, &Akd2gMotorCreateControllerArg3,
+    &Akd2gMotorCreateControllerArg4};
 static const iocshFuncDef Akd2gMotorCreateControllerDef = {"Akd2gMotorCreateController", 5,
                                                            Akd2gMotorCreateControllerArgs};
 
 static void Akd2gMotorCreateControllerCallFunc(const iocshArgBuf *args) {
-    Akd2gMotorCreateController(args[0].sval, args[1].sval, args[2].ival, args[3].ival, args[4].ival);
+    Akd2gMotorCreateController(args[0].sval, args[1].sval, args[2].ival, args[3].ival,
+                               args[4].ival);
 }
 
 static void Akd2gMotorRegister(void) {
