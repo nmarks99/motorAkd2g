@@ -130,8 +130,10 @@ asynStatus Akd2gMotorAxis::stop(double acceleration) {
 
 bool Akd2gMotorAxis::is_enabled() {
     bool enabled = false;
+
     sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisActive).c_str());
     asynStatus asyn_status = pC_->writeReadController();
+
     if (asyn_status) {
         setIntegerParam(pC_->motorStatusCommsError_, 1);
     } else {
@@ -142,6 +144,7 @@ bool Akd2gMotorAxis::is_enabled() {
             enabled = false;
         }
     }
+    setIntegerParam(pC_->motorStatusPowerOn_, enabled);
     return enabled;
 }
 
@@ -150,14 +153,12 @@ asynStatus Akd2gMotorAxis::move(double position, int relative, double minVelocit
     asynStatus asyn_status = asynStatus::asynSuccess;
 
     bool homed = false;
-    bool enabled = false;
 
     // check that axis is enabled
-    enabled = is_enabled();
+    bool enabled = is_enabled();
     if (!enabled) {
         asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
                   "Cannot move because axis %d is not enabled\n", axisIndex_);
-        setIntegerParam(pC_->motorStatusProblem_, 1);
         goto skip;
     }
 
@@ -176,7 +177,6 @@ asynStatus Akd2gMotorAxis::move(double position, int relative, double minVelocit
     if (!homed) {
         asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
                   "Cannot move because axis %d is not homed\n", axisIndex_);
-        setIntegerParam(pC_->motorStatusProblem_, 1);
         goto skip;
     }
 
@@ -247,7 +247,7 @@ asynStatus Akd2gMotorAxis::home(double minVelocity, double maxVelocity, double a
 
     asynStatus asyn_status = asynSuccess;
 
-    if (true) {
+    if (is_enabled()) {
 
         // Set homing velocity
         std::cout << fmt_cmd(Command::AxisHomeVelocity, maxVelocity / DRIVER_RESOLUTION) << "\n";
@@ -295,7 +295,6 @@ asynStatus Akd2gMotorAxis::home(double minVelocity, double maxVelocity, double a
     } else {
         asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR,
                   "Cannot home because axis %d is not enabled\n", axisIndex_);
-        setIntegerParam(pC_->motorStatusProblem_, 1);
     }
 
 skip:
@@ -311,7 +310,7 @@ asynStatus Akd2gMotorAxis::poll(bool *moving) {
     double position_deg = 0.0;
     int position_udeg = 0;
     std::string in_str_clean;
-
+       
     // used to remove everthing after "[" in a string
     // Return value looks like "3.14 [deg]" so we must remove the " [deg]"
     auto parse_rbk = [](const char *in_string) {
@@ -322,6 +321,26 @@ asynStatus Akd2gMotorAxis::poll(bool *moving) {
         }
         return in_str;
     };
+
+    // Get safety input status
+    sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisSTOActive).c_str());
+    asyn_status = pC_->writeReadController();
+    if (asyn_status) {
+        goto skip;
+    }
+    try {
+        bool sto = std::stoi(pC_->inString_);
+        if (sto) {
+            setIntegerParam(pC_->motorStatusLowLimit_, 1);
+            setIntegerParam(pC_->motorStatusHighLimit_, 1);
+            setIntegerParam(pC_->motorStatusPowerOn_, 0);
+        } else {
+            setIntegerParam(pC_->motorStatusLowLimit_, 0);
+            setIntegerParam(pC_->motorStatusHighLimit_, 0);
+        }
+    } catch (std::exception &err) {
+        asynPrint(pC_->pasynUserSelf, ASYN_TRACE_ERROR, "%s\n", err.what());
+    }
 
     // Get moving done status
     sprintf(pC_->outString_, "%s", cmd_map_.at(Command::AxisMTRunning).c_str());
@@ -361,15 +380,17 @@ skip:
 asynStatus Akd2gMotorAxis::setClosedLoop(bool closedLoop) {
     asynStatus asyn_status = asynSuccess;
 
-    std::string cmd =
-        closedLoop ? cmd_map_.at(Command::AxisEnable) : cmd_map_.at(Command::AxisDisable);
+    std::string cmd;
+    if (closedLoop) {
+        cmd = cmd_map_.at(Command::AxisEnable);
+    } else {
+        cmd = cmd_map_.at(Command::AxisDisable);
+    }
     sprintf(pC_->outString_, "%s", cmd.c_str());
     asyn_status = pC_->writeReadController();
 
-    if (asyn_status) {
-        setIntegerParam(pC_->motorStatusCommsError_, 1);
-    }
     callParamCallbacks();
+    setIntegerParam(pC_->motorStatusPowerOn_, closedLoop);
     return asyn_status;
 }
 

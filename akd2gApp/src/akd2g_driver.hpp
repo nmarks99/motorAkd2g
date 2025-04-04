@@ -16,6 +16,7 @@ enum class Command : int {
     AxisMotionStat,
     AxisActive,
     AxisPosition,
+    AxisSTOActive,
 
     // Homing
     AxisHomeMove,
@@ -51,6 +52,7 @@ inline const std::unordered_map<Command, std::string> cmd_map_template{
     {Command::AxisActive, "AXIS#.ACTIVE"},
     {Command::AxisMotionStat, "AXIS#.MOTIONSTAT"},
     {Command::AxisPosition, "AXIS#.PL.FB"},
+    {Command::AxisSTOActive, "AXIS#.SAFE.STO.ACTIVE"},
 
     {Command::AxisHomeMove, "AXIS#.HOME.MOVE"},
     {Command::AxisHomeVelocity, "AXIS#.HOME.V"},
@@ -97,6 +99,7 @@ class epicsShareClass Akd2gMotorAxis : public asynMotorAxis {
     };
 
     bool is_enabled();
+    int dumb_ = 0;
 
     friend class Akd2gMotorController;
 };
@@ -124,9 +127,6 @@ class epicsShareClass Akd2gMotorController : public asynMotorController {
     /// \param[in] axisNo Axis index number
     /// \returns NULL if the axis number is invalid
     Akd2gMotorAxis *getAxis(int axisNo);
-
-    // protected:
-    // integer asyn param indices defined here
 
     friend class Akd2gMotorAxis;
 };
